@@ -120,8 +120,39 @@ fn step_norm(t: &mut Term) -> bool {
     }
 }
 
-fn step_appl() {
-    
+fn step_appl(t: &mut Term) -> bool {
+    match t {
+        Term::Idx(_) => false,
+        Term::Lmb(t1) => {
+            step_appl(t1)
+        },
+        Term::App(t1, t2) => {
+            match t1.as_mut() {
+                Term::Lmb(_) => {
+                    step_appl(t2) || beta_rule_ref(t)
+                },
+                _ => {
+                    step_appl(t1) || step_appl(t2)
+                }
+            }
+        }
+    }
+}
+
+fn normal_form_ref(step: fn(&mut Term) -> bool, t: &mut Term) {
+    let mut i = 0;
+    loop {
+        println!("{:?}", t);
+        if !step(t) || i > 10 {
+            break;
+        }
+        i += 1;
+    }
+}
+
+fn normal_form(step: fn(&mut Term) -> bool, mut t: BTerm) -> BTerm {
+    normal_form_ref(step, &mut t);
+    return t;
 }
 
 // ideas
@@ -166,6 +197,35 @@ fn test_step_norm() {
     let mut test = App(i, big_omega.clone());
     assert_eq!(true, step_norm(&mut test));
     assert_eq!(big_omega, test);
+}
+
+#[test]
+fn test_step_appl() {
+    let i = Lmb(Idx(0));
+    let omega = Lmb(App(Idx(0), Idx(0)));
+    let big_omega = App(omega.clone(), omega);
+    let mut test = App(i, big_omega.clone());
+    let test_before = test.clone();
+    assert_eq!(true, step_appl(&mut test));
+    assert_eq!(test_before, test);
+}
+
+#[allow(non_snake_case)]
+#[test]
+fn test_normal_form() {
+    // GHCi> cIDB = Lmb (Idx 0)
+    // GHCi> cKDB = Lmb (Lmb (Idx 1))
+    // GHCi> comegaDB = Lmb (Idx 0 :@: Idx 0)
+    // GHCi> cOmegaDB = comegaDB :@: comegaDB
+    // GHCi> nfDBN (cKDB :@: cIDB :@: cOmegaDB)
+    // Lmb (Idx 0)
+    // GHCi> nfDBA (cKDB :@: cIDB :@: cOmegaDB)
+    let I = Lmb(Idx(0));
+    let K = Lmb(Lmb(Idx(1)));
+    let ω = Lmb(App(Idx(0), Idx(0)));
+    let Ω = App(ω.clone(), ω.clone());
+    let t = App(App(K.clone(), I.clone()), Ω.clone());
+    assert_eq!(Lmb(Idx(0)), normal_form(step_norm, t));
 }
 
 fn main() {

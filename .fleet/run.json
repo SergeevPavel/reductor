@@ -8,7 +8,7 @@
         {
             "type": "cargo",
             "name": "test",
-            "cargoArgs": ["test"],
+            "cargoArgs": ["test", "--", "--nocapture"],
         },
         
     ]
