@@ -75,45 +75,50 @@ fn subst(j: i32, mut t: BTerm, s: &BTerm) -> BTerm {
     t
 }
 
-fn beta_rule(t: BTerm) -> BTerm {
-    match *t {
+fn beta_rule(mut t: BTerm) -> BTerm {
+    beta_rule_ref(&mut t);
+    t
+}
+
+fn beta_rule_ref(t: &mut Term) -> bool {
+    match t {
         Term::App(t1, t2) => {
-            match *t1 {
+            match t1.as_mut() {
                 Term::Lmb(t3) => {
                     // todo we can save one pass here
-                    shift(-1, subst(0, t3, &shift(1, t2)))
+                    shift_ref(1, t2);
+                    subst_ref(0, t3, t2);
+                    shift_ref(-1, t3);
+
+                    *t = (**t3).clone(); // todo remove clone
+                    true
                 },
-                _ => unreachable!("Can't apply {:?} to  {:?}", t1, t2)
+                _ => false
             }
         }
-        _ => t
+        _ => false
     }
 }
-//
-//fn beta_rule_ref(t: &mut Term) -> bool {
-//    
-//}
 
-//fn step_norm(t: &mut Term) -> bool {
-//    match t {
-//        Term::Idx(_) => false,
-//        Term::Lmb(t1) => {
-//            step_norm(t1)
-//        },
-//        Term::App(t1, t2) => {
-//            match t1 {
-//                Term::Lmb(t3) => {
-//                    
-//                    *t1 = shift(-1, subst(0, *t3, &shift(1, *t2)));
-//                    true
-//                },
-//                _ => {
-//                    todo!()
-//                }
-//            }
-//        }
-//    }
-//}
+fn step_norm(t: &mut Term) -> bool {
+    match t {
+        Term::Idx(_) => false,
+        Term::Lmb(t1) => {
+            step_norm(t1)
+        },
+        Term::App(t1, t2) => {
+            match t1.as_mut() {
+                Term::Lmb(_) => {
+                    // todo inline?
+                    beta_rule_ref(t)
+                },
+                _ => {
+                    step_norm(t1) || step_norm(t2)
+                }
+            }
+        }
+    }
+}
 
 fn step_appl() {
     
@@ -146,6 +151,21 @@ fn test_beta_rule() {
     assert_eq!(beta_rule(App(Lmb(Lmb(Idx(0))), Idx(41))), Lmb(Idx(0)));
     assert_eq!(beta_rule(App(Lmb(Lmb(Idx(1))), Idx(41))), Lmb(Idx(42)));
     assert_eq!(beta_rule(App(Lmb(Idx(0)), Idx(42))), Idx(42));
+}
+
+#[test]
+fn test_step_norm() {
+    // GHCi> cIDB = Lmb (Idx 0)
+    // GHCi> comegaDB = Lmb (Idx 0 :@: Idx 0)
+    // GHCi> cOmegaDB = comegaDB :@: comegaDB
+    // GHCi> test = cIDB :@: cOmegaDB
+    // GHCi> oneStepDBN test == Just cOmegaDB
+    let i = Lmb(Idx(0));
+    let omega = Lmb(App(Idx(0), Idx(0)));
+    let big_omega = App(omega.clone(), omega);
+    let mut test = App(i, big_omega.clone());
+    assert_eq!(true, step_norm(&mut test));
+    assert_eq!(big_omega, test);
 }
 
 fn main() {
