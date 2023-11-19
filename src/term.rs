@@ -143,7 +143,6 @@ pub fn step_appl(t: &mut Term) -> bool {
 fn normal_form_ref(step: fn(&mut Term) -> bool, t: &mut Term) {
     let mut i = 0;
     loop {
-        println!("{:?}", t);
         if !step(t) || i > 10 {
             break;
         }
