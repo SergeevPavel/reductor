@@ -10,7 +10,7 @@ pub enum Expr {
     Fun(Ident, Box<Expr>)
 }
 
-type BExpr = Box<Expr>;
+pub type BExpr = Box<Expr>;
 
 #[allow(non_snake_case)]
 pub fn Var<I: ToString>(i: I) -> BExpr {
@@ -81,7 +81,7 @@ fn make_fresh(ctx: &Vec<Ident>, ident: &Ident) -> Ident {
         if !ctx.contains(&ident) {
             break ident;
         }
-        let mut parts: Vec<&str> = ident.split("_").collect();
+        let parts: Vec<&str> = ident.split("_").collect();
         match &parts[..] {
             [var_name] => {
                 ident = format!("{}_1", var_name).to_string();
