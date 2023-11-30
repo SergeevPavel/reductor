@@ -5,7 +5,7 @@ use nom::{
         complete::{alpha1, multispace0, multispace1},
     },
     sequence::{delimited, preceded, tuple},
-    IResult, Parser,
+    IResult, Parser, combinator::{all_consuming, flat_map}, multi::{separated_list1, separated_list0, many_m_n, fold_many1}, error::ParseError,
 };
 
 use crate::expr::{BExpr, Fun, Inv, Var};
@@ -24,27 +24,28 @@ fn variable(input: &str) -> IResult<&str, BExpr> {
 }
 
 fn invocation(input: &str) -> IResult<&str, BExpr> {
-    delimited(
-        character::complete::char('('),
-        tuple((expression, preceded(multispace1, expression))),
-        character::complete::char(')'),
-    )
-    .map(|(left, right)| Inv(left, right))
-    .parse(input)
+    let invocation_body = flat_map(preceded(multispace0, expression), |func| {
+        //todo aks why init is not FnOnce
+        fold_many1(preceded(multispace1, expression), move || { func.clone() }, |func, arg| {
+            Inv(func, arg)
+        })
+    });
+    delimited(character::complete::char('('),
+              invocation_body,
+              character::complete::char(')')).parse(input)
 }
 
 fn function(input: &str) -> IResult<&str, BExpr> {
-    let variable_def = delimited(
-        character::complete::char('\\'),
-        variable_name,
-        character::complete::char('.'),
-    );
+    let variables_def = delimited(character::complete::char('['),
+                                  separated_list1(multispace1, variable_name),
+                                  character::complete::char(']'));
+
     delimited(
         character::complete::char('('),
-        tuple((variable_def, preceded(multispace0, expression))),
+        tuple((variables_def, preceded(multispace0, expression))),
         character::complete::char(')'),
     )
-    .map(|(v, b)| Fun(v, b))
+    .map(|(vs, b)| vs.iter().rfold(b, |body, v| (Fun(v, body))))
     .parse(input)
 }
 
@@ -52,12 +53,16 @@ fn expression(input: &str) -> IResult<&str, BExpr> {
     alt((function, variable, invocation)).parse(input)
 }
 
+pub fn parse_expression(input: &str) -> Option<BExpr> {
+    Some(all_consuming(expression).parse(input).map(|(_, o)| o).unwrap())
+}
+
 #[test]
 fn test_parser() {
-    assert_eq!(Ok(("", Var("foo"))), expression("foo"));
-    assert_eq!(Ok(("", Fun("x", Var("x")))), expression("(\\x.x)"));
+    assert_eq!(Ok(("", Var("foo"))), variable("foo"));
+    assert_eq!(Ok(("", Fun("x", Var("x")))), function("([x] x)"));
     assert_eq!(
-        Ok(("", Fun("x", Inv(Var("x"), Var("x"))))),
-        expression("(\\x.(x x))")
+        Some(Fun("x", Inv(Var("x"), Var("x")))),
+        parse_expression("([x] (x x))")
     )
 }

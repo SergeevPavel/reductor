@@ -39,7 +39,7 @@ fn ident_from_end(ctx: &Vec<Ident>, idx: i32) -> Option<Ident> {
     ctx.iter().rev().nth(idx as usize).map(|s| s.to_owned())
 }
 
-fn to_term(expr: &BExpr) -> (BTerm, Vec<Ident>) {
+pub fn to_term(expr: &BExpr) -> (BTerm, Vec<Ident>) {
     let mut free = Vec::new();
     let mut bounded = Vec::new();
     fn go(free: &mut Vec<Ident>, bounded: &mut Vec<Ident>, expr: &Expr) -> BTerm {
@@ -95,7 +95,7 @@ fn make_fresh(ctx: &Vec<Ident>, ident: &Ident) -> Ident {
     }
 }
 
-fn to_expr(free: Vec<Ident>, term: &BTerm) -> BExpr {
+pub fn to_expr(free: Vec<Ident>, term: &BTerm) -> BExpr {
     let mut ctx = free.clone();
     ctx.reverse();
     fn go(ctx: &mut Vec<Ident>, term: &Term) -> BExpr {
